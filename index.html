@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Thread Split</title>
+    <meta charset="UTF-8">
+    <meta lang="de-De">
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+        h1 {
+            text-align: center;
+            font-size: 5em;
+        }
+        p {
+            text-align: center;
+            font-size: 2em;
+        }
+        .marked {
+            background-color: #f2f8d2;
+        }
+        .container {
+            width: 95%;
+            height: 100%;
+            justify-content: center;
+            align-items: center;
+        }
+        label {
+            padding: 12px 12px 12px 0;
+            display: inline-block;
+            font-size: 2em;
+        }
+        input[type=text], select, textarea, .number{
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #953aa1;
+            border-radius: 4px;
+            resize: vertical;
+            font-size: 2em;
+        }
+        button {
+            background-color: #410450;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            float: left;
+            font-size: 2em;
+        }
+        .snippetOutput {
+            width: 100%;
+            height: 100%;
+            padding: 12px;
+            border: 1px solid #953aa1;
+            border-radius: 4px;
+            resize: vertical;
+            font-size: 2em;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .outputcontainer {
+
+            width: 100%;
+        }
+        
+    </style>
+</head>
+<body>
+    <h1>Thread Split</h1>
+    <p>Simply type your whole thread in the text field, then selcect and copy the snippets.<br>Use <i class="marked">"#!cut!"</i> to insert a cut at a specific time.</p>
+    <div class="container">
+        <textarea id="inputText" class="inputArea" rows="10">Enter your Text here!</textarea>
+        <label for="maxCharCount">Max Characters per Part:</label>
+        <input type="number" id="maxCharCount" name="charcountText" value="250" min="0" class="number">
+        <label for="snippetSelect">Snippet:</label>
+        <select name="snippetSelect" id="snippetSelector">
+            <option value="wholeText">Whole text</option>
+        </select>
+        <button id="copyButton">Copy snippet to clipboard</button>
+        <div class="outputcontainer">
+            <textarea id="snippetOutput" rows="10" disabled></textarea>
+        </div>
+    </div>
+
+    <script>
+        const inputText = document.getElementById("inputText");
+        const snippetSelector = document.getElementById("snippetSelector");
+        const snippetOutput = document.getElementById("snippetOutput");
+        const copyButton = document.getElementById("copyButton");
+        const maxCharCount = document.getElementById("maxCharCount");
+
+        inputText.addEventListener("input", updateSnippetArr);
+        snippetSelector.addEventListener("change", updateSnippet);
+        copyButton.addEventListener("click", copySnippet);
+        maxCharCount.addEventListener("input", maxCharCountChanged);
+
+        var snippets = new Array();
+        
+        updateSnippet();
+
+        // Updates the snippet
+        function updateSnippet() {
+            //if selected snippet is whole text or empty, set the whole text
+            if (snippetSelector.selectedIndex === 0 || snippetSelector.length === 0) {
+                copyButton.innerHTML = "Copy whole text to clipboard";
+                text = inputText.value;
+                //if there is a \n after a #!cut!, remove it
+                text = text.replace(/#!cut!\n/g, "#!cut!");
+                //cut every #!cut! from the text and replace it with a line break
+                text = text.replace(/#!cut!/g, "\n");
+                snippetOutput.innerHTML = text;
+            } else {
+                copyButton.innerHTML = "Copy snippet to clipboard";
+                snippetOutput.innerHTML = snippets[snippetSelector.selectedIndex-1];
+            }
+        }
+
+        function updateSnippetSelector(){
+            //clear the selector
+            snippetSelector.innerHTML = "";
+            //add the whole text option
+            let option = document.createElement("option");
+            option.text = "Whole text";
+            snippetSelector.add(option);
+            //add the other options
+            for(let i = 0; i<snippets.length; i++){
+                option = document.createElement("option");
+                option.text = "Snippet " + (i+1);
+                snippetSelector.add(option);
+            }
+        }
+        function maxCharCountChanged(){
+            updateSnippetArr();
+        }
+        
+        //following function is inspired/borrowed from https://www.w3schools.com/howto/howto_js_copy_clipboard.asp
+        // Copies the snippet to the clipboard
+        function copySnippet() {
+            // Get the text field
+            var copyText = snippetOutput;
+
+            //query permission to access the clipboard
+            navigator.permissions.query({ name: "clipboard-write" }).then((result) => {
+            if (result.state === "granted" || result.state === "prompt") {
+                // Write to the clipboard
+                navigator.clipboard.writeText(copyText.value).then(function() {
+                /* clipboard successfully set */
+                }, function() {
+                    /* clipboard write failed */
+                    alert("Failed to copy to clipboard! Please select the text manually and copy it!");
+                });
+            }
+            });
+        }
+
+        // Updates the snippet array
+        function updateSnippetArr(){
+            if(maxCharCount.value <= 0){
+                maxCharCount.value = 1;
+            }
+            if(inputText.value.length <= 0){
+                return;
+            }
+            //clear the array
+            snippets = [];
+            //split the text into parts with maxCharCount characters or if encountering #!cut
+            let text = inputText.value;
+            let part = "";
+            let charCount = 0;
+            for(let i = 0; i<text.length; i++){
+                if(text.substring(i, i+6) === "#!cut!"){
+                    snippets.push(part);
+                    part = "";
+                    charCount = 0;
+                    i+=5;
+                    //if the next character is a line break, skip it
+                    if(text[i+1] === "\n"){
+                        i++;
+                    }
+                } else {
+                    part += text[i];
+                    charCount++;
+                    if(charCount > maxCharCount.value){
+                        snippets.push(part);
+                        part = "";
+                        charCount = 0;
+                    }
+                }
+            }
+            //add the last part
+            if(part.length > 0){
+                snippets.push(part);
+            }
+            //update the snippet selector
+            updateSnippetSelector();
+            //update the snippet
+            updateSnippet();
+        }
+    </script>
+</body>
+</html>
